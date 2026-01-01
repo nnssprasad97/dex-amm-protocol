@@ -77,3 +77,12 @@ npm test
 - Checks for zero amounts
 - Overflow protection via Solidity >0.8
 - Input validation for liquidity ratios
+
+## Contract Addresses
+Contracts are not deployed on a public testnet; all tests run on local Hardhat network.
+
+## Known Limitations
+- Single trading pair only per DEX instance.
+- No price oracle implementation (only spot price via reserves).
+- No built-in slippage protection (minAmountOut must be handled by caller).
+- No deadline parameter for transaction expiry.
