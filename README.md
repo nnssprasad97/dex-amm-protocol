@@ -1,88 +1,84 @@
-# DEX AMM Project
+# DEX AMM Protocol
 
 ## Overview
-A simplified Decentralized Exchange (DEX) implementing the Automated Market Maker (AMM) model using the constant product formula (x * y = k), similar to Uniswap V2.
+A decentralized exchange (DEX) implementing the Automated Market Maker (AMM) model using the constant product formula (`x * y = k`). It provides liquidity provision, dynamic pricing, proportional token returns during liquidity removal, and 0.3% swaps. This project demonstrates core functional knowledge of DeFi primitives based closely on Uniswap V2 mechanics.
 
 ## Features
-- Initial and subsequent liquidity provision
-- Liquidity removal with proportional share calculation
-- Token swaps using constant product formula (x * y = k)
-- 0.3% trading fee for liquidity providers
-- LP token minting and burning
+- **Liquidity Management:** Add and remove liquidity seamlessly, receiving LP tokens proportional to exact share of reserves.
+- **Constant Product Swaps:** Instantly trade Token A for Token B (and vice-versa) along the `x * y = k` pricing curve without counter-parties.
+- **Dynamic Pricing:** Real-time spot price queries reflecting changes after transactions.
+- **Fee Accumulation:** 0.3% fee collected on all swaps and automatically distributed proportionally among liquidity providers. 
+- **Security:** Checks for non-zero transactions and uses ReentrancyGuard for interaction safety.
 
 ## Architecture
-The project consists of a core DEX contract handling all pool logic and a mock ERC20 token for testing.
-- `DEX.sol`: Manages reserves, liquidity, swaps, and pricing.
-- `MockERC20.sol`: Simple ERC20 for creating test trading pairs.
+The protocol contains two primary smart contracts:
+- `DEX.sol`: The core Automated Market Maker implementation. It manages liquidity pools, LP minting/burning, and fee-inclusive token swaps. Inherits from OpenZeppelin's `ERC20` (for LP tokens) and `ReentrancyGuard`.
+- `MockERC20.sol`: A simple test token implementing the ERC20 standard and a basic mint function purely for generating test tokens in the Hardhat local environment.
 
 ## Mathematical Implementation
 
 ### Constant Product Formula
-The invariant `x * y = k` is maintained, where `x` and `y` are the reserves of the two tokens. After a swap, the new reserves must satisfy `x_new * y_new >= k`.
+The core invariant maintained by the protocol pool is:
+`x * y = k`
+Where `x` and `y` are the respective quantities of Token A and Token B in the pool, and `k` is a constant. When trading, the user alters the ratio of `x` and `y` without decreasing `k`.
 
 ### Fee Calculation
-A 0.3% fee is applied to every trade. This is implemented by deducting the fee from the input amount before applying the constant product formula:`amountInWithFee = amountIn * 997`.
+Trades deduct a `0.3%` fee which remains in the pool, increasing the total value of the reserves (thus expanding `k`). The precise `getAmountOut` calculation performed for all swaps uses this formula to ensure integer accuracy:
+`amountInWithFee = amountIn * 997`
+`amountOut = (amountInWithFee * reserveOut) / ((reserveIn * 1000) + amountInWithFee)`
 
 ### LP Token Minting
-- **Initial Liquidity**: `liquidity = sqrt(amountA * amountB)`
-- **Subsequent Liquidity**: `liquidity = min((amountA * totalLiquidity) / reserveA, (amountB * totalLiquidity) / reserveB)`
+Liquidity providers who supply tokens receive "LP Tokens" (symbol `DEX-LP`). 
+- **First Liquidity Provider:** `liquidityMinted = sqrt(amountA * amountB)`
+- **Subsequent Liquidity Providers:** `liquidityMinted = min((amountA * totalSupply) / reserveA, (amountB * totalSupply) / reserveB)`
+
+Liquidity removal returns tokens proportionally:
+`amountToReturn = (liquidityAmount * reserveTotal) / totalSupply`
 
 ## Setup Instructions
 
 ### Prerequisites
-- Docker and Docker Compose installed
-- Git
+- Node.js
+- Docker & Docker Compose (Optional but recommended for execution)
 
-### Installation
+### Docker Environment
 
-1. Clone the repository:
-```bash
-git clone <your-repo-url>
-cd dex-amm
-```
-
-2. Start Docker environment:
-```bash
+1. Build and boot the environment
+```sh
 docker-compose up -d
 ```
-
-3. Compile contracts:
-```bash
+2. Compile the Smart Contracts
+```sh
 docker-compose exec app npm run compile
 ```
-
-4. Run tests:
-```bash
+3. Run Test Suite
+```sh
 docker-compose exec app npm test
 ```
-
-5. Check coverage:
-```bash
+4. Verify Test Coverage
+```sh
 docker-compose exec app npm run coverage
 ```
 
-6. Stop Docker:
-```bash
-docker-compose down
-```
-
-## Running Tests Locally (without Docker)
-```bash
+### Local Environment
+If you prefer running outside Docker, run these equivalent Hardhat commands:
+```sh
 npm install
-npm run compile
-npm test
+npx hardhat compile
+npx hardhat test
 ```
-
-## Security Considerations
-- Checks for zero amounts
-- Overflow protection via Solidity >0.8
-- Input validation for liquidity ratios
 
 ## Contract Addresses
-Contracts are not deployed on a public testnet; all tests run on local Hardhat network.
+This project is currently for local evaluation via Hardhat and has not been deployed to any public testnet. It can be easily deployed by providing the addresses of two legitimate ERC20 tokens in `scripts/deploy.js`.
 
 ## Known Limitations
-- Single trading pair only per DEX instance.
-- No price oracle implementation (only spot price via reserves).
-- No built-in slippage protection (minAmountOut must be handled by caller).
-- No deadline parameter for transaction expiry.
+- Implements only a single trading pair configuration per `DEX.sol` instance. Expanding to a factory system would allow infinite pair creation.
+- No `minAmountOut` slippage protection mechanisms in the swap functions. Callers must handle maximum acceptable slippage natively or wrap the DEX inside a router contract.
+- Minimal Oracle implementation: The protocol does not accumulate price over time (TWAP) and therefore relies solely on spot `getPrice` functions which are susceptible to flash loan manipulation.
+- Lacks a deadline modifier, meaning queued transactions can be mined far into the future when price ratios have shifted drastically.
+
+## Security Considerations
+- **Inherited Standards:** Uses highly-audited OpenZeppelin `SafeERC20` wrapper patterns minimizing unpredictable return value bugs on transfers.
+- **Reentrancy Protections:** Crucial state modifications are ordered before external token transfers (following Checks-Effects-Interactions) alongside strict enforcement of `ReentrancyGuard` `nonReentrant` modifiers.
+- **Pre-computed Overflows:** Developed on Solidity ^0.8.0, capitalizing on native overflow and underflow panics without `SafeMath` requirements. 
+- **Proportional Checks:** Zero-amount inputs rigorously revert to save computational gas costs across all endpoints.
