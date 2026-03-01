@@ -181,13 +181,17 @@ contract DEX is ERC20, ReentrancyGuard {
         amountOut = numerator / denominator;
     }
 
-    // Helper to update reserves
+    /// @notice Helper function to update internal reserve balances
+    /// @param _reserveA New reserve balance for token A
+    /// @param _reserveB New reserve balance for token B
     function _updateReserves(uint256 _reserveA, uint256 _reserveB) private {
         reserveA = _reserveA;
         reserveB = _reserveB;
     }
 
-    // Helper for square root
+    /// @notice Helper function to calculate the square root of a number
+    /// @param y The number to calculate the square root of
+    /// @return z The square root of y
     function sqrt(uint256 y) internal pure returns (uint256 z) {
         if (y > 3) {
             z = y;

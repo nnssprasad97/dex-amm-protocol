@@ -84,18 +84,9 @@ describe("DEX", function () {
             expect(event.args.amountB).to.equal(ethers.utils.parseEther("50"));
         });
 
-        it("should return correct token amounts on liquidity removal - simpler", async function () {
-            await dex.addLiquidity(
-                ethers.utils.parseEther("100"),
-                ethers.utils.parseEther("100")
-            );
-
-            const tx = await dex.removeLiquidity(ethers.utils.parseEther("50"));
-            const receipt = await tx.wait();
-
-            const event = receipt.events.find(e => e.event === 'LiquidityRemoved');
-            expect(event.args.amountA).to.equal(ethers.utils.parseEther("50"));
-            expect(event.args.amountB).to.equal(ethers.utils.parseEther("50"));
+        it("should revert on zero liquidity removal", async function () {
+            await dex.addLiquidity(ethers.utils.parseEther("100"), ethers.utils.parseEther("100"));
+            await expect(dex.removeLiquidity(0)).to.be.revertedWith("Amount must be > 0");
         });
 
         it("should revert on zero liquidity addition", async function () {
